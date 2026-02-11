@@ -3,6 +3,16 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 import datetime
 
+# --- CONFIGURACIÓN DE SEGURIDAD VISUAL ---
+# Esto oculta el menú de GitHub y los menús de Streamlit
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            </style>
+            """
+
 # --- CONEXIÓN SEGURA ---
 creds_info = st.secrets["gcp_service_account"]
 creds = service_account.Credentials.from_service_account_info(creds_info)
@@ -11,19 +21,19 @@ CALENDAR_ID = st.secrets["calendar_id"]
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Agenda Pastoral Online", page_icon="None")
+st.markdown(hide_st_style, unsafe_allow_html=True) # Aplicar el estilo oculto
 st.title("Agenda Pastoral Online")
 
-# Inicializar estado de éxito
 if 'reserva_completada' not in st.session_state:
     st.session_state.reserva_completada = False
 
 if st.session_state.reserva_completada:
-    st.success("Su cita ha sido confirmada y registrada en el calendario. Ya puede cerrar esta ventana.")
+    st.success("Su cita ha sido confirmada y registrada. Ya puede cerrar esta ventana.")
     if st.button("Volver al inicio"):
         st.session_state.reserva_completada = False
         st.rerun()
 else:
-    st.write("Seleccione un espacio disponible para programar su cita.")
+    st.write("Seleccione un espacio disponible para su cita.")
 
     def get_slots():
         now = datetime.datetime.utcnow().isoformat() + 'Z'
@@ -48,19 +58,14 @@ else:
                 
                 if st.button("Confirmar Cita", key=f"b_{event['id']}"):
                     if name and phone:
-                        # Actualizar el evento en Google Calendar
                         event['summary'] = f"Cita Pastoral: {name}"
                         event['description'] = f"Persona: {name}\nTeléfono: {phone}"
                         
                         try:
-                            service.events().update(
-                                calendarId=CALENDAR_ID, 
-                                eventId=event['id'], 
-                                body=event).execute()
-                            
+                            service.events().update(calendarId=CALENDAR_ID, eventId=event['id'], body=event).execute()
                             st.session_state.reserva_completada = True
                             st.rerun()
                         except Exception as e:
-                            st.error(f"Hubo un problema al actualizar el calendario: {e}")
+                            st.error(f"Error al actualizar: {e}")
                     else:
                         st.error("Por favor, ingrese su nombre y teléfono.")
