@@ -55,20 +55,24 @@ else:
             with st.expander(f"Cita para el {friendly_time}"):
                 name = st.text_input("Nombre Completo", key=f"n_{event['id']}")
                 
-                # Campo de teléfono con instrucción
-                phone_input = st.text_input("Número de Teléfono (10 dígitos)", key=f"p_{event['id']}", placeholder="Ej: 7871234567")
+                # Input de teléfono con el placeholder solicitado
+                phone_input = st.text_input(
+                    "Número de Teléfono", 
+                    key=f"p_{event['id']}", 
+                    placeholder="___-___-____"
+                )
                 
-                # Lógica de limpieza y formato
-                # Eliminamos cualquier cosa que no sea número
+                # Procesamiento silencioso del número
                 only_nums = re.sub(r'\D', '', phone_input)
                 
-                formatted_phone = ""
                 if len(only_nums) == 10:
                     formatted_phone = f"{only_nums[:3]}-{only_nums[3:6]}-{only_nums[6:]}"
-                    st.caption(f"Formato detectado: {formatted_phone}")
+                    # Mostramos visualmente que el número es válido
+                    st.caption(f"Número válido: {formatted_phone}")
                 
                 if st.button("Confirmar Cita", key=f"b_{event['id']}"):
                     if name and len(only_nums) == 10:
+                        formatted_phone = f"{only_nums[:3]}-{only_nums[3:6]}-{only_nums[6:]}"
                         event['summary'] = f"Cita Pastoral: {name}"
                         event['description'] = f"Persona: {name}\nTeléfono: {formatted_phone}"
                         
@@ -79,6 +83,6 @@ else:
                         except Exception as e:
                             st.error(f"Error al actualizar: {e}")
                     elif name and len(only_nums) != 10:
-                        st.warning("El número de teléfono debe tener exactamente 10 dígitos.")
+                        st.warning("El teléfono debe tener 10 dígitos.")
                     else:
-                        st.error("Por favor, ingrese su nombre y un teléfono válido.")
+                        st.error("Por favor, complete todos los campos.")
