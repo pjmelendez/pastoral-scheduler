@@ -2,9 +2,9 @@ import streamlit as st
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 import datetime
+import re
 
 # --- CONFIGURACIÓN DE SEGURIDAD VISUAL ---
-# Esto oculta el menú de GitHub y los menús de Streamlit
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -21,7 +21,7 @@ CALENDAR_ID = st.secrets["calendar_id"]
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Agenda Pastoral Online", page_icon="None")
-st.markdown(hide_st_style, unsafe_allow_html=True) # Aplicar el estilo oculto
+st.markdown(hide_st_style, unsafe_allow_html=True)
 st.title("Agenda Pastoral Online")
 
 if 'reserva_completada' not in st.session_state:
@@ -54,12 +54,23 @@ else:
 
             with st.expander(f"Cita para el {friendly_time}"):
                 name = st.text_input("Nombre Completo", key=f"n_{event['id']}")
-                phone = st.text_input("Número de Teléfono", key=f"p_{event['id']}")
+                
+                # Campo de teléfono con instrucción
+                phone_input = st.text_input("Número de Teléfono (10 dígitos)", key=f"p_{event['id']}", placeholder="Ej: 7871234567")
+                
+                # Lógica de limpieza y formato
+                # Eliminamos cualquier cosa que no sea número
+                only_nums = re.sub(r'\D', '', phone_input)
+                
+                formatted_phone = ""
+                if len(only_nums) == 10:
+                    formatted_phone = f"{only_nums[:3]}-{only_nums[3:6]}-{only_nums[6:]}"
+                    st.caption(f"Formato detectado: {formatted_phone}")
                 
                 if st.button("Confirmar Cita", key=f"b_{event['id']}"):
-                    if name and phone:
+                    if name and len(only_nums) == 10:
                         event['summary'] = f"Cita Pastoral: {name}"
-                        event['description'] = f"Persona: {name}\nTeléfono: {phone}"
+                        event['description'] = f"Persona: {name}\nTeléfono: {formatted_phone}"
                         
                         try:
                             service.events().update(calendarId=CALENDAR_ID, eventId=event['id'], body=event).execute()
@@ -67,5 +78,7 @@ else:
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error al actualizar: {e}")
+                    elif name and len(only_nums) != 10:
+                        st.warning("El número de teléfono debe tener exactamente 10 dígitos.")
                     else:
-                        st.error("Por favor, ingrese su nombre y teléfono.")
+                        st.error("Por favor, ingrese su nombre y un teléfono válido.")
