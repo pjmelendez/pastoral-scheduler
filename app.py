@@ -36,11 +36,14 @@ else:
     st.write("Seleccione un espacio disponible para su cita.")
 
     def get_slots():
-        now = datetime.datetime.utcnow().isoformat() + 'Z'
-        events_result = service.events().list(
-            calendarId=CALENDAR_ID, timeMin=now,
-            singleEvents=True, orderBy='startTime').execute()
-        return [e for e in events_result.get('items', []) if e.get('summary', '').lower() in ['available', 'disponible']]
+        try:
+            now = datetime.datetime.utcnow().isoformat() + 'Z'
+            events_result = service.events().list(
+                calendarId=CALENDAR_ID, timeMin=now,
+                singleEvents=True, orderBy='startTime').execute()
+            return [e for e in events_result.get('items', []) if e.get('summary', '').lower() in ['available', 'disponible']]
+        except Exception:
+            return []
 
     slots = get_slots()
 
@@ -54,34 +57,38 @@ else:
 
             with st.expander(f"Cita para el {friendly_time}"):
                 name = st.text_input("Nombre Completo", key=f"n_{event['id']}")
+                phone_input = st.text_input("Número de Teléfono", key=f"p_{event['id']}", placeholder="___-___-____")
                 
-                # Input de teléfono con el placeholder solicitado
-                phone_input = st.text_input(
-                    "Número de Teléfono", 
-                    key=f"p_{event['id']}", 
-                    placeholder="___-___-____"
-                )
-                
-                # Procesamiento silencioso del número
                 only_nums = re.sub(r'\D', '', phone_input)
                 
                 if len(only_nums) == 10:
                     formatted_phone = f"{only_nums[:3]}-{only_nums[3:6]}-{only_nums[6:]}"
-                    # Mostramos visualmente que el número es válido
                     st.caption(f"Número válido: {formatted_phone}")
                 
                 if st.button("Confirmar Cita", key=f"b_{event['id']}"):
                     if name and len(only_nums) == 10:
                         formatted_phone = f"{only_nums[:3]}-{only_nums[3:6]}-{only_nums[6:]}"
+                        
+                        # Preparamos la actualización
                         event['summary'] = f"Cita Pastoral: {name}"
                         event['description'] = f"Persona: {name}\nTeléfono: {formatted_phone}"
                         
                         try:
-                            service.events().update(calendarId=CALENDAR_ID, eventId=event['id'], body=event).execute()
-                            st.session_state.reserva_completada = True
-                            st.rerun()
+                            # VERIFICACIÓN ACTIVA: Intentamos la actualización
+                            updated_event = service.events().update(
+                                calendarId=CALENDAR_ID, 
+                                eventId=event['id'], 
+                                body=event).execute()
+                            
+                            # Si Google responde con el ID del evento, la cita es REAL
+                            if 'id' in updated_event:
+                                st.session_state.reserva_completada = True
+                                st.rerun()
+                            else:
+                                st.error("El calendario no confirmó la cita. Por favor, intente de nuevo.")
+                                
                         except Exception as e:
-                            st.error(f"Error al actualizar: {e}")
+                            st.error("Hubo un error de conexión con el calendario. Por favor, verifique su internet e intente de nuevo.")
                     elif name and len(only_nums) != 10:
                         st.warning("El teléfono debe tener 10 dígitos.")
                     else:
